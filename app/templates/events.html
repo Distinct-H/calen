@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}事件 · 我们的日历{% endblock %}
+
+{% block content %}
+<h1 class="mb-4 text-xl font-semibold">事件</h1>
+
+{% if message %}
+<p class="mb-4 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm text-emerald-700">{{ message }}</p>
+{% endif %}
+{% if error %}
+<p class="mb-4 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">{{ error }}</p>
+{% endif %}
+
+{# 新建 / 编辑用同一个表单，靠 action 区分 #}
+<section class="mb-5 rounded-2xl bg-white p-5 shadow-sm">
+  <h2 class="mb-4 font-semibold">{{ '编辑事件' if editing else '新建事件' }}</h2>
+
+  <form method="post"
+        action="{{ '/events/' ~ editing.id if editing else '/events' }}"
+        class="space-y-3">
+
+    <label class="block">
+      <span class="text-sm text-slate-500">标题</span>
+      <input name="title" required maxlength="200"
+             value="{{ editing.title if editing else '' }}"
+             class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5
+                    focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-300">
+    </label>
+
+    <label class="block">
+      <span class="text-sm text-slate-500">日期</span>
+      <input name="event_date" type="date" required
+             value="{{ (editing.event_date if editing else today).isoformat() }}"
+             class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5
+                    focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-300">
+    </label>
+
+    <div>
+      <span class="text-sm text-slate-500">时间（都留空就是全天事件）</span>
+      <div class="mt-1 flex items-center gap-2">
+        <input name="start_time" type="time"
+               value="{{ editing.start_time.strftime('%H:%M') if editing and editing.start_time else '' }}"
+               class="w-full rounded-lg border border-slate-200 px-3 py-2.5
+                      focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-300">
+        <span class="text-slate-300">–</span>
+        <input name="end_time" type="time"
+               value="{{ editing.end_time.strftime('%H:%M') if editing and editing.end_time else '' }}"
+               class="w-full rounded-lg border border-slate-200 px-3 py-2.5
+                      focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-300">
+      </div>
+    </div>
+
+    <label class="block">
+      <span class="text-sm text-slate-500">颜色</span>
+      <select name="color"
+              class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5
+                     focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-300">
+        {% for value, label in colors.items() %}
+        <option value="{{ value }}"
+          {% if (editing.color if editing else default_color) == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="block">
+      <span class="text-sm text-slate-500">备注（可选）</span>
+      <textarea name="description" rows="2" maxlength="1000"
+                class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2
+                       focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-300"
+      >{{ editing.description or '' if editing else '' }}</textarea>
+    </label>
+
+    <div class="flex gap-2">
+      <button type="submit"
+              class="flex-1 rounded-lg bg-rose-500 py-2.5 font-medium text-white
+                     transition hover:bg-rose-600 active:scale-[0.99]">
+        {{ '保存修改' if editing else '添加' }}
+      </button>
+      {% if editing %}
+      <a href="/events"
+         class="rounded-lg border border-slate-200 px-5 py-2.5 text-center text-slate-500
+                transition hover:bg-slate-50">取消</a>
+      {% endif %}
+    </div>
+  </form>
+</section>
+
+<section class="space-y-2">
+  <h2 class="mb-2 font-semibold">全部事件（{{ events | length }}）</h2>
+
+  {% if not events %}
+  <p class="rounded-2xl bg-white p-5 text-sm text-slate-400 shadow-sm">还没有事件</p>
+  {% endif %}
+
+  {% for event in events %}
+  <article class="flex items-start gap-3 rounded-2xl bg-white p-4 shadow-sm">
+    <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+          style="background: {{ {'slate':'#64748b','rose':'#f43f5e','amber':'#f59e0b','emerald':'#10b981','sky':'#0ea5e9','violet':'#8b5cf6'}.get(event.color, '#64748b') }}"></span>
+
+    <div class="min-w-0 flex-1">
+      <p class="font-medium">{{ event.title }}</p>
+      <p class="mt-0.5 text-xs text-slate-400">
+        {{ event.event_date | cn_date }} · {{ format_time_range(event) }}
+      </p>
+      {% if event.description %}
+      <p class="mt-1.5 whitespace-pre-line text-sm text-slate-500">{{ event.description }}</p>
+      {% endif %}
+    </div>
+
+    <div class="flex shrink-0 flex-col items-end gap-1.5">
+      <a href="/events?edit={{ event.id }}" class="text-xs text-slate-400 underline underline-offset-2">编辑</a>
+      <form method="post" action="/events/{{ event.id }}/delete"
+            onsubmit="return confirm('删除「{{ event.title }}」？')">
+        <button class="text-xs text-rose-400 underline underline-offset-2">删除</button>
+      </form>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+{% endblock %}

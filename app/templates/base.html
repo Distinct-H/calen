@@ -20,7 +20,14 @@
   <nav class="fixed inset-x-0 bottom-0 border-t border-rose-100 bg-white/95 backdrop-blur
               pb-[env(safe-area-inset-bottom)]">
     <div class="mx-auto flex max-w-2xl">
-      {% set tabs = [('/', '今日', '📝'), ('/settings', '设置', '⚙️')] %}
+      {% set tabs = [
+        ('/',              '今日',  '📝'),
+        ('/calendar',      '日历',  '📅'),
+        ('/events',        '事件',  '📌'),
+        ('/anniversaries', '纪念日', '💞'),
+        ('/stats',         '统计',  '📊'),
+        ('/settings',      '设置',  '⚙️'),
+      ] %}
       {% for href, label, icon in tabs %}
       <a href="{{ href }}"
          class="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs

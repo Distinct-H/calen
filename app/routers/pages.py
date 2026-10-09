@@ -17,7 +17,9 @@ from app.db import get_db
 from app.models import User
 from app.services.clock import today_in
 from app.services.dashboard import build_dashboard
+from app.services.notifier import PROVIDER_LABELS
 from app.services.records import apply_target_change
+from app.services.reminder import KIND_LABELS, in_app_hints, list_reminders
 from app.services.scoring import split_minutes, to_minutes
 from app.templating import templates
 
@@ -63,16 +65,23 @@ def today_page(
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
+    view = build_dashboard(db, user)
     return templates.TemplateResponse(
         request,
         "today.html",
-        {"view": build_dashboard(db, user), "user": user},
+        {
+            "view": view,
+            "user": user,
+            # 站内提醒：不依赖推送配置，打开页面就能看到
+            "hints": in_app_hints(db, user, view.day),
+        },
     )
 
 
 @router.get("/settings")
 def settings_page(
     request: Request,
+    db: Session = Depends(get_db),
     user: User = Depends(require_user),
     message: str | None = None,
     error: str | None = None,
@@ -85,6 +94,9 @@ def settings_page(
             "user": user,
             "target_hours": target_hours,
             "target_minutes": target_minutes,
+            "reminders": list_reminders(db),
+            "reminder_kinds": KIND_LABELS,
+            "push_providers": PROVIDER_LABELS,
             "message": message,
             "error": error,
         },

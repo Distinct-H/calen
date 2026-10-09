@@ -9,7 +9,16 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.auth import NotAuthenticatedError
 from app.config import settings
-from app.routers import pages, records
+from app.routers import (
+    anniversaries,
+    calendar,
+    cron,
+    events,
+    pages,
+    records,
+    reminders,
+    stats,
+)
 
 # 带着占位密钥上生产等于没有会话安全，宁可起不来
 settings.assert_production_ready()
@@ -51,6 +60,12 @@ async def handle_not_authenticated(request: Request, _exc: NotAuthenticatedError
 
 app.include_router(pages.router)
 app.include_router(records.router)
+app.include_router(calendar.router)
+app.include_router(events.router)
+app.include_router(anniversaries.router)
+app.include_router(stats.router)
+app.include_router(reminders.router)
+app.include_router(cron.router)
 
 
 @app.get("/healthz", include_in_schema=False)

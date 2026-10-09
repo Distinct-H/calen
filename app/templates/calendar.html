@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}日历 · 我们的日历{% endblock %}
+
+{% block content %}
+<h1 class="mb-4 text-xl font-semibold">日历</h1>
+
+<div class="rounded-2xl bg-white p-3 shadow-sm sm:p-4">
+  <div id="calendar"></div>
+</div>
+
+<div class="mt-4 rounded-2xl bg-white p-4 text-xs text-slate-500 shadow-sm">
+  <p class="mb-2 font-semibold text-slate-600">图例</p>
+  <div class="flex flex-wrap gap-x-4 gap-y-1.5">
+    <span>😴 睡眠</span>
+    <span>💪 锻炼</span>
+    <span>📌 事件</span>
+    <span><span class="inline-block h-2.5 w-2.5 rounded-full align-middle" style="background:#10b981"></span> 达标 ✓</span>
+    <span><span class="inline-block h-2.5 w-2.5 rounded-full align-middle" style="background:#f59e0b"></span> 未达标 ✗</span>
+  </div>
+</div>
+
+<!-- 点击条目后显示的详情 -->
+<div id="detail" class="mt-4 hidden rounded-2xl bg-white p-4 shadow-sm">
+  <div class="flex items-start justify-between gap-3">
+    <div>
+      <p id="detail-title" class="font-semibold"></p>
+      <p id="detail-body" class="mt-1 whitespace-pre-line text-sm text-slate-500"></p>
+    </div>
+    <button onclick="document.getElementById('detail').classList.add('hidden')"
+            class="shrink-0 text-xs text-slate-400">关闭</button>
+  </div>
+  <a id="detail-edit" href="#" class="mt-3 inline-block text-sm text-rose-600 underline underline-offset-2">编辑这条事件</a>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // 手机上月视图格子太挤，窄屏默认用列表视图
+    const isNarrow = window.matchMedia('(max-width: 640px)').matches;
+
+    const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+      initialView: isNarrow ? 'listMonth' : 'dayGridMonth',
+      locale: 'zh-cn',
+      firstDay: 1,                       // 周一开头
+      height: 'auto',
+      headerToolbar: {
+        left: 'prev,next',
+        center: 'title',
+        right: isNarrow ? 'listMonth,dayGridMonth' : 'dayGridMonth,listMonth'
+      },
+      buttonText: { today: '今天', month: '月', list: '列表' },
+      noEventsText: '这个月还没有记录',
+      dayMaxEvents: 3,
+      events: '/api/calendar',
+
+      eventClick: function (info) {
+        const props = info.event.extendedProps;
+        const detail = document.getElementById('detail');
+        const title = document.getElementById('detail-title');
+        const body = document.getElementById('detail-body');
+        const edit = document.getElementById('detail-edit');
+
+        if (props.kind === 'record') {
+          const sign = props.deviation_minutes >= 0 ? '超出' : '还差';
+          const abs = Math.abs(props.deviation_minutes);
+          title.textContent = `${props.who} · ${props.metric}`;
+          body.textContent =
+            `实际 ${fmt(props.actual_minutes)} / 目标 ${fmt(props.target_minutes)}\n` +
+            `${sign} ${fmt(abs)}` +
+            (props.note ? `\n备注：${props.note}` : '');
+          edit.classList.add('hidden');
+        } else {
+          title.textContent = info.event.title.replace(/^📌\s*/, '');
+          body.textContent = props.when + (props.description ? `\n${props.description}` : '');
+          edit.href = `/events?edit=${props.event_id}`;
+          edit.classList.remove('hidden');
+        }
+
+        detail.classList.remove('hidden');
+        detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
+
+    calendar.render();
+
+    function fmt(minutes) {
+      const h = Math.floor(minutes / 60), m = minutes % 60;
+      if (h && m) return `${h} 小时 ${m} 分`;
+      if (h) return `${h} 小时`;
+      return `${m} 分`;
+    }
+  });
+</script>
+{% endblock %}

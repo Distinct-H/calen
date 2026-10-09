@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}统计 · 我们的日历{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex items-center justify-between">
+  <h1 class="text-xl font-semibold">统计</h1>
+  <div class="flex gap-1 text-xs">
+    {% for n in [30, 90, 180] %}
+    <a href="/stats?days={{ n }}"
+       class="rounded-full px-3 py-1.5 {% if stats.days == n %}bg-rose-500 text-white{% else %}bg-white text-slate-500 shadow-sm{% endif %}">
+      {{ n }} 天
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+{# 关键指标卡 #}
+<div class="mb-4 grid gap-3 sm:grid-cols-2">
+  {% for p in stats.people %}
+  <section class="rounded-2xl bg-white p-5 shadow-sm">
+    <div class="flex items-center gap-2">
+      <span class="h-2.5 w-2.5 rounded-full" style="background: {{ p.color }}"></span>
+      <h2 class="font-semibold">{{ p.display_name }}</h2>
+      <span class="text-xs text-slate-400">{{ p.metric }}</span>
+    </div>
+    <dl class="mt-4 grid grid-cols-2 gap-3 text-sm">
+      <div>
+        <dt class="text-xs text-slate-400">达标率</dt>
+        <dd class="mt-0.5 font-semibold">
+          {{ p.summary.on_target_rate | percent }}
+          <span class="text-xs font-normal text-slate-400">{{ p.summary.on_target_days }}/{{ p.summary.total_days }}</span>
+        </dd>
+      </div>
+      <div>
+        <dt class="text-xs text-slate-400">累计偏差</dt>
+        <dd class="mt-0.5 font-semibold {{ 'text-emerald-600' if p.summary.cumulative_deviation >= 0 else 'text-amber-600' }}">
+          {{ p.summary.cumulative_deviation | signed }}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-xs text-slate-400">当前连续</dt>
+        <dd class="mt-0.5 font-semibold">{{ p.summary.current_streak }} 天</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-slate-400">最长连续</dt>
+        <dd class="mt-0.5 font-semibold">{{ p.summary.best_streak }} 天</dd>
+      </div>
+    </dl>
+  </section>
+  {% endfor %}
+</div>
+
+<section class="mb-4 rounded-2xl bg-white p-4 shadow-sm">
+  <h2 class="mb-1 font-semibold">每日偏差</h2>
+  <p class="mb-3 text-xs text-slate-400">0 轴以上为超出达标，以下为还差。断点 = 那天没打卡。</p>
+  <canvas id="deviationChart" height="220"></canvas>
+</section>
+
+<section class="rounded-2xl bg-white p-4 shadow-sm">
+  <h2 class="mb-1 font-semibold">累计偏差</h2>
+  <p class="mb-3 text-xs text-slate-400">往上走说明长期超出达标，往下走说明在欠。</p>
+  <canvas id="cumulativeChart" height="220"></canvas>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script id="stats-data" type="application/json">{{ stats | tojson }}</script>
+<script>
+  (function () {
+    const data = JSON.parse(document.getElementById('stats-data').textContent);
+
+    // 日期轴标签太密，只显示 月/日
+    const labels = data.labels.map(d => d.slice(5).replace('-', '/'));
+
+    function minutesTick(value) {
+      const h = Math.floor(Math.abs(value) / 60);
+      const sign = value < 0 ? '-' : '';
+      return h >= 1 ? `${sign}${h}h` : `${value}m`;
+    }
+
+    const baseOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (ctx.parsed.y === null) return `${ctx.dataset.label}: 未打卡`;
+              const total = ctx.parsed.y;
+              const sign = total > 0 ? '+' : (total < 0 ? '-' : '');
+              const abs = Math.abs(total);
+              const h = Math.floor(abs / 60), m = abs % 60;
+              const text = h && m ? `${h}小时${m}分` : (h ? `${h}小时` : `${m}分`);
+              return `${ctx.dataset.label}: ${sign}${text}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 10, font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { callback: minutesTick, font: { size: 10 } } }
+      }
+    };
+
+    new Chart(document.getElementById('deviationChart'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: data.people.map(p => ({
+          label: p.display_name,
+          data: p.deviation,
+          borderColor: p.color,
+          backgroundColor: p.color,
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          tension: 0.25,
+          spanGaps: false        // 漏打卡就断开，不要连成假的连续线
+        }))
+      },
+      options: baseOptions
+    });
+
+    new Chart(document.getElementById('cumulativeChart'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: data.people.map(p => ({
+          label: p.display_name,
+          data: p.cumulative,
+          borderColor: p.color,
+          backgroundColor: p.color + '22',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          tension: 0.25,
+          fill: true
+        }))
+      },
+      options: baseOptions
+    });
+  })();
+</script>
+{% endblock %}

@@ -3,6 +3,19 @@
 两人共享的打卡 + 日历应用。女生记每日**睡眠时长**，男生记每日**锻炼时长**，
 各自设定达标值，系统算出当日「距离达标还差多少 / 超出多少」并存档。
 
+## 功能
+
+| 页面 | 内容 |
+|---|---|
+| **今日** | 自己打卡、对方今日状态、双方达标程度对比、累计偏差与连续达标、站内提醒横幅 |
+| **日历** | FullCalendar 月视图（手机自动切列表视图），打卡用 ✓/✗ 和颜色标记，叠加事件 |
+| **事件** | 事件增删改，支持全天 / 定时、配色、备注。共享可见，两人都能改 |
+| **纪念日** | 倒数与「已经第 N 天」，支持每年 / 每月 / 仅一次，可配提前几天提醒 |
+| **统计** | 每日偏差折线、累计偏差面积图、达标率与连续达标（30 / 90 / 180 天） |
+| **设置** | 昵称、达标值、推送渠道、提醒规则、改密码 |
+
+部署上线看 [DEPLOY.md](DEPLOY.md)。
+
 ## 快速开始
 
 ```bash
@@ -51,6 +64,34 @@ python scripts/seed_demo.py --days 45
 
 这条性质由 `tests/test_records.py::TestSnapshot` 守着。
 
+## 提醒是怎么跑的
+
+**不把定时器写在应用进程里。** 托管平台会休眠、会重启，进程内的 APScheduler
+不可靠。应用只暴露一个幂等入口，由外部按时来打：
+
+```bash
+# HTTP 入口（给外部 cron 服务用）
+curl -X POST http://127.0.0.1:8000/internal/cron/tick -H "X-Cron-Secret: ..."
+
+# CLI 入口（给平台 cron 用，不走网络）
+python scripts/tick.py --dry-run     # 只看会发什么
+python scripts/tick.py               # 真的发
+```
+
+两个入口调同一个函数，共用同一套幂等保证，同时配着也不会重复推送。
+
+幂等靠 `reminder_logs` 的 `UNIQUE(reminder_id, user_id, sent_date)`：
+**先抢占当天的名额，抢到了才真的推送**。重复触发必然只有一个抢得到。
+
+两条刻意的取舍：
+
+- **推送失败当天不重试** —— 重试要面对「请求超时但其实发成功了」，那会导致
+  一天响好几次。宁可漏一条，也不要重复打扰。失败会记在 `reminder_logs` 里。
+- **服务停机后会补发** —— 规则是「今天的触发时间已过且今天还没发过」，
+  所以早上 8 点的提醒即使服务到晚上才恢复，也还是会发。晚发好过不发。
+
+推送渠道（Bark / Server酱）在设置页各自配，不配也能用——站内提醒横幅始终有效。
+
 ## 常用命令
 
 ```bash
@@ -76,13 +117,26 @@ app/
     records.py         打卡写入 + 达标值快照规则
     dashboard.py       今日面板视图模型
     clock.py           时区与「今天是哪天」
+    events.py          事件 CRUD 与校验
+    anniversary.py     纪念日推算（闰年 / 月末边界）
+    calendar.py        组装 FullCalendar 数据源
+    stats.py           图表时间序列
+    reminder.py        ★ 提醒筛选与幂等发送
+    notifier.py        Bark / Server酱 推送适配
   routers/
     pages.py           登录、今日、设置
-    records.py         打卡提交（HTMX 片段）+ /api/records（JSON）
+    records.py         打卡提交（HTMX 片段）+ /api/records
+    calendar.py        日历页 + /api/calendar
+    events.py          事件页与增删改
+    anniversaries.py   纪念日页与增删改
+    stats.py           统计页 + /api/stats
+    reminders.py       推送配置与提醒规则
+    cron.py            /internal/cron/tick
   templates/           Jinja2 + HTMX
 scripts/
   create_users.py      建/改账号
   seed_demo.py         灌演示数据
+  tick.py              发送到期提醒（平台 cron 入口）
 ```
 
 ## 几个设计取舍

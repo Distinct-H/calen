@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}登录 · 我们的日历{% endblock %}
+
+{% block content %}
+<div class="flex min-h-[70dvh] flex-col justify-center">
+
+  <div class="mb-8 text-center">
+    <div class="text-5xl">💞</div>
+    <h1 class="mt-3 text-2xl font-semibold text-slate-800">我们的日历</h1>
+    <p class="mt-1 text-sm text-slate-400">登录后记录今天</p>
+  </div>
+
+  <form method="post" action="/login" class="space-y-4 rounded-2xl bg-white p-6 shadow-sm">
+
+    {% if error %}
+    <p class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{{ error }}</p>
+    {% endif %}
+
+    <label class="block">
+      <span class="text-sm text-slate-500">用户名</span>
+      <input name="username" value="{{ username or '' }}" required autofocus
+             autocomplete="username" autocapitalize="none"
+             class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5
+                    focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-300">
+    </label>
+
+    <label class="block">
+      <span class="text-sm text-slate-500">密码</span>
+      <input name="password" type="password" required autocomplete="current-password"
+             class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5
+                    focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-300">
+    </label>
+
+    <button type="submit"
+            class="w-full rounded-lg bg-rose-500 py-2.5 font-medium text-white
+                   transition hover:bg-rose-600 active:scale-[0.99]">
+      登录
+    </button>
+  </form>
+
+  <p class="mt-5 text-center text-xs text-slate-400">
+    没有注册入口 —— 账号由 scripts/create_users.py 创建
+  </p>
+</div>
+{% endblock %}

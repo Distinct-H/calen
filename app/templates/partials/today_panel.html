@@ -1,0 +1,131 @@
+{# 今日面板。HTMX 提交打卡后整块替换，所以根元素的 id 必须保留。 #}
+<div id="today-panel" class="space-y-4">
+
+  {% if saved %}
+  <p class="rounded-xl bg-emerald-50 px-4 py-2.5 text-sm text-emerald-700">已保存 ✓</p>
+  {% endif %}
+
+  {# ── 我的打卡 ─────────────────────────────────────────── #}
+  {% set me = view.me %}
+  <section class="rounded-2xl bg-white p-5 shadow-sm">
+    <div class="mb-4 flex items-baseline justify-between">
+      <h2 class="font-semibold">我的{{ me.user.metric_label }}</h2>
+      <span class="text-xs text-slate-400">达标值 {{ me.user.target_minutes | minutes }}</span>
+    </div>
+
+    <form hx-post="/records" hx-target="#today-panel" hx-swap="outerHTML" class="space-y-3">
+      <div class="flex items-end gap-2">
+        <label class="flex-1">
+          <span class="text-xs text-slate-400">小时</span>
+          <input type="number" name="hours" min="0" max="24" inputmode="numeric"
+                 value="{{ me.actual_hm[0] }}"
+                 class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-center text-lg
+                        focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-300">
+        </label>
+        <span class="pb-3 text-slate-300">:</span>
+        <label class="flex-1">
+          <span class="text-xs text-slate-400">分钟</span>
+          <input type="number" name="minutes" min="0" max="59" inputmode="numeric"
+                 value="{{ me.actual_hm[1] }}"
+                 class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-center text-lg
+                        focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-300">
+        </label>
+      </div>
+
+      <input name="note" maxlength="200" placeholder="备注（可选）"
+             value="{{ me.record.note or '' if me.record else '' }}"
+             class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm
+                    focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-300">
+
+      <button type="submit"
+              class="w-full rounded-lg bg-rose-500 py-2.5 font-medium text-white
+                     transition hover:bg-rose-600 active:scale-[0.99]">
+        {{ '更新今天' if me.filled else '保存今天' }}
+      </button>
+    </form>
+
+    {% if me.filled %}
+    <p class="mt-4 border-t border-slate-100 pt-3 text-sm">
+      <span class="text-slate-400">今日</span>
+      <span class="ml-1 font-semibold {{ 'text-emerald-600' if me.deviation >= 0 else 'text-amber-600' }}">
+        {{ me.deviation | deviation }}
+      </span>
+      <span class="ml-1 text-xs text-slate-400">
+        （{{ me.record.actual_minutes | minutes }} / 目标 {{ me.record.target_minutes | minutes }}）
+      </span>
+    </p>
+    {% endif %}
+  </section>
+
+  {# ── 对方今日 ─────────────────────────────────────────── #}
+  {% if view.partner %}
+  {% set ta = view.partner %}
+  <section class="rounded-2xl bg-white p-5 shadow-sm">
+    <div class="mb-3 flex items-baseline justify-between">
+      <h2 class="font-semibold">{{ ta.user.display_name }} 的{{ ta.user.metric_label }}</h2>
+      <span class="text-xs text-slate-400">达标值 {{ ta.user.target_minutes | minutes }}</span>
+    </div>
+
+    {% if ta.filled %}
+    <p class="text-2xl font-semibold">{{ ta.record.actual_minutes | minutes }}</p>
+    <p class="mt-1 text-sm {{ 'text-emerald-600' if ta.deviation >= 0 else 'text-amber-600' }}">
+      {{ ta.deviation | deviation }}
+    </p>
+    {% if ta.record.note %}
+    <p class="mt-2 text-sm text-slate-500">「{{ ta.record.note }}」</p>
+    {% endif %}
+    {% else %}
+    <p class="text-sm text-slate-400">今天还没填 —— 催一下？</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {# ── 今日对比 ─────────────────────────────────────────── #}
+  {% if view.pair_diff is not none %}
+  <section class="rounded-2xl bg-white p-5 shadow-sm">
+    <h2 class="mb-2 font-semibold">今日对比</h2>
+    {% if view.more_on_target %}
+    <p class="text-sm text-slate-500">
+      <span class="font-semibold text-rose-600">{{ view.more_on_target.display_name }}</span>
+      今天更达标，领先
+      <span class="font-semibold">{{ view.pair_diff | minutes }}</span>
+    </p>
+    {% else %}
+    <p class="text-sm text-slate-500">两人达标程度一样，打平 🤝</p>
+    {% endif %}
+    <p class="mt-2 text-xs text-slate-400">
+      达标程度之差（女生 − 男生）= {{ view.pair_diff | signed }}
+    </p>
+  </section>
+  {% endif %}
+
+  {# ── 我的累计 ─────────────────────────────────────────── #}
+  {% set s = me.summary %}
+  <section class="rounded-2xl bg-white p-5 shadow-sm">
+    <h2 class="mb-4 font-semibold">我的累计</h2>
+    <dl class="grid grid-cols-2 gap-4">
+      <div>
+        <dt class="text-xs text-slate-400">累计偏差</dt>
+        <dd class="mt-0.5 font-semibold {{ 'text-emerald-600' if s.cumulative_deviation >= 0 else 'text-amber-600' }}">
+          {{ s.cumulative_deviation | signed }}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-xs text-slate-400">达标率</dt>
+        <dd class="mt-0.5 font-semibold">
+          {{ s.on_target_rate | percent }}
+          <span class="text-xs font-normal text-slate-400">{{ s.on_target_days }}/{{ s.total_days }} 天</span>
+        </dd>
+      </div>
+      <div>
+        <dt class="text-xs text-slate-400">当前连续达标</dt>
+        <dd class="mt-0.5 font-semibold">{{ s.current_streak }} 天</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-slate-400">最长连续达标</dt>
+        <dd class="mt-0.5 font-semibold">{{ s.best_streak }} 天</dd>
+      </div>
+    </dl>
+  </section>
+
+</div>

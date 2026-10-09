@@ -1,0 +1,18 @@
+/* Tailwind 之外的少量补充样式。 */
+
+/* 手机上数字键盘更好用：去掉 number 输入框的上下箭头 */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* HTMX 请求进行中时给提交按钮一点反馈 */
+.htmx-request button[type="submit"],
+button[type="submit"].htmx-request {
+  opacity: 0.6;
+  pointer-events: none;
+}

@@ -1,0 +1,21 @@
+# 人工维护的依赖清单。装完后用 pip freeze > requirements.lock.txt 锁定精确版本。
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.34,<1.0
+sqlalchemy>=2.0.36,<2.1
+alembic>=1.14,<2.0
+pydantic-settings>=2.7,<3.0
+
+# Postgres 驱动。用 psycopg 3 而不是 psycopg2——后者对 Python 3.13 支持不好。
+psycopg[binary]>=3.2,<4.0
+
+jinja2>=3.1,<4.0
+python-multipart>=0.0.20       # 表单解析
+itsdangerous>=2.2,<3.0         # SessionMiddleware 的签名 Cookie 依赖
+
+# 密码哈希。不用 passlib：已半停维护，且与 bcrypt 4.x 有兼容告警。
+argon2-cffi>=23.1,<26.0
+
+httpx>=0.28,<1.0               # 调 Bark / Server酱 推送
+tzdata>=2024.2                 # 保证 ZoneInfo 在任何平台都能找到时区库
+
+pytest>=8.3,<9.0

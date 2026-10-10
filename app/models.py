@@ -12,6 +12,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    LargeBinary,
     String,
     Text,
     Time,
@@ -176,6 +177,106 @@ class Reminder(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
+    )
+
+
+class ImageAsset(Base):
+    """图片。字节直接存库。
+
+    为什么不存本地文件系统：托管平台的容器磁盘每次部署都会重置，
+    存本地等于每发一次版照片全丢。为什么不上对象存储：要额外账号和配置，
+    而两人几百张图在压缩后完全放得下，还能随数据库一起备份。
+
+    入库前一律用 Pillow 重新编码成 JPEG 并限制尺寸，所以单张通常只有
+    一两百 KB。真到了库撑不住的规模（比如超过 1GB），再换对象存储，
+    只需要改 app/services/images.py 的存取两个函数。
+    """
+
+    __tablename__ = "images"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    owner_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(16), index=True)  # avatar | event
+
+    # kind='event' 时指向所属事件；头像为空
+    event_id: Mapped[int | None] = mapped_column(
+        ForeignKey("events.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+
+    content_type: Mapped[str] = mapped_column(String(40), default="image/jpeg")
+    width: Mapped[int] = mapped_column(Integer)
+    height: Mapped[int] = mapped_column(Integer)
+    byte_size: Mapped[int] = mapped_column(Integer)
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+
+
+class KissConfig(Base):
+    """亲亲兑换规则。全局单行（id=1），两人共用一套规则。"""
+
+    __tablename__ = "kiss_config"
+
+    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+
+    # 多少分钟换 1 个亲亲。3 就是「3 分钟 : 1 个亲亲」
+    minutes_per_kiss: Mapped[int] = mapped_column(Integer, default=3)
+
+    # 女生领先时怎么算：deduct = 抵扣欠的亲亲，custom = 换成别的奖励
+    female_lead_mode: Mapped[str] = mapped_column(String(16), default="deduct")
+
+    custom_reward_name: Mapped[str] = mapped_column(String(50), default="小红花")
+    minutes_per_custom_unit: Mapped[int] = mapped_column(Integer, default=3)
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class KissSettlement(Base):
+    """每日亲亲结算。一天一条。
+
+    和 DailyRecord 同样的存档思路：把**当时的兑换规则**一起存下来。
+    否则你哪天把比率从 3:1 调成 2:1，过去所有结算都会被重算，
+    「欠了多少」这个数字就再也对不上账了。
+
+    ``kiss_delta_centi`` 的单位是「百分之一个亲亲」——用整数存是为了
+    避开浮点误差，也避开 Decimal 在 SQLite 和 Postgres 上的方言差异。
+    正数 = 女生欠的增加，负数 = 减少。
+    """
+
+    __tablename__ = "kiss_settlements"
+    __table_args__ = (
+        UniqueConstraint("settle_date", name="uq_settlement_per_day"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    settle_date: Mapped[date] = mapped_column(Date, index=True)
+
+    # 结算依据的快照
+    female_deviation_minutes: Mapped[int] = mapped_column(Integer)
+    male_deviation_minutes: Mapped[int] = mapped_column(Integer)
+    pair_diff_minutes: Mapped[int] = mapped_column(Integer)
+
+    # 当时的兑换规则快照
+    minutes_per_kiss: Mapped[int] = mapped_column(Integer)
+    female_lead_mode: Mapped[str] = mapped_column(String(16))
+    minutes_per_custom_unit: Mapped[int] = mapped_column(Integer)
+    custom_reward_name: Mapped[str] = mapped_column(String(50))
+
+    # 结算结果（单位：百分之一个）
+    kiss_delta_centi: Mapped[int] = mapped_column(Integer, default=0)
+    custom_delta_centi: Mapped[int] = mapped_column(Integer, default=0)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
 
 

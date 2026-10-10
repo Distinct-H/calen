@@ -15,7 +15,7 @@
 <section class="mb-5 rounded-2xl bg-white p-5 shadow-sm">
   <h2 class="mb-4 font-semibold">{{ '编辑事件' if editing else '新建事件' }}</h2>
 
-  <form method="post"
+  <form method="post" enctype="multipart/form-data"
         action="{{ '/events/' ~ editing.id if editing else '/events' }}"
         class="space-y-3">
 
@@ -70,6 +70,19 @@
       >{{ editing.description or '' if editing else '' }}</textarea>
     </label>
 
+    {% if not editing %}
+    <label class="block">
+      <span class="text-sm text-slate-500">图片（可选，最多 {{ max_images }} 张）</span>
+      <input type="file" name="files" accept="image/*" multiple
+             class="mt-1 block w-full text-sm text-slate-500
+                    file:mr-3 file:rounded-lg file:border-0 file:bg-rose-50
+                    file:px-3 file:py-2 file:text-sm file:text-rose-600">
+      <span class="mt-1 block text-xs text-slate-400">
+        单张上限 {{ max_upload_mb }} MB，会自动压缩并剥掉拍摄位置信息
+      </span>
+    </label>
+    {% endif %}
+
     <div class="flex gap-2">
       <button type="submit"
               class="flex-1 rounded-lg bg-rose-500 py-2.5 font-medium text-white
@@ -93,27 +106,66 @@
   {% endif %}
 
   {% for event in events %}
-  <article class="flex items-start gap-3 rounded-2xl bg-white p-4 shadow-sm">
-    <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
-          style="background: {{ {'slate':'#64748b','rose':'#f43f5e','amber':'#f59e0b','emerald':'#10b981','sky':'#0ea5e9','violet':'#8b5cf6'}.get(event.color, '#64748b') }}"></span>
+  {% set imgs = images.get(event.id, []) %}
+  <article class="rounded-2xl bg-white p-4 shadow-sm">
 
-    <div class="min-w-0 flex-1">
-      <p class="font-medium">{{ event.title }}</p>
-      <p class="mt-0.5 text-xs text-slate-400">
-        {{ event.event_date | cn_date }} · {{ format_time_range(event) }}
-      </p>
-      {% if event.description %}
-      <p class="mt-1.5 whitespace-pre-line text-sm text-slate-500">{{ event.description }}</p>
-      {% endif %}
+    <div class="flex items-start gap-3">
+      <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+            style="background: {{ {'slate':'#64748b','rose':'#f43f5e','amber':'#f59e0b','emerald':'#10b981','sky':'#0ea5e9','violet':'#8b5cf6'}.get(event.color, '#64748b') }}"></span>
+
+      <div class="min-w-0 flex-1">
+        <p class="font-medium">{{ event.title }}</p>
+        <p class="mt-0.5 text-xs text-slate-400">
+          {{ event.event_date | cn_date }} · {{ format_time_range(event) }}
+          {% if imgs %} · {{ imgs | length }} 张图{% endif %}
+        </p>
+        {% if event.description %}
+        <p class="mt-1.5 whitespace-pre-line text-sm text-slate-500">{{ event.description }}</p>
+        {% endif %}
+      </div>
+
+      <div class="flex shrink-0 flex-col items-end gap-1.5">
+        <a href="/events?edit={{ event.id }}" class="text-xs text-slate-400 underline underline-offset-2">编辑</a>
+        <form method="post" action="/events/{{ event.id }}/delete"
+              onsubmit="return confirm('删除「{{ event.title }}」？图片也会一起删掉。')">
+          <button class="text-xs text-rose-400 underline underline-offset-2">删除</button>
+        </form>
+      </div>
     </div>
 
-    <div class="flex shrink-0 flex-col items-end gap-1.5">
-      <a href="/events?edit={{ event.id }}" class="text-xs text-slate-400 underline underline-offset-2">编辑</a>
-      <form method="post" action="/events/{{ event.id }}/delete"
-            onsubmit="return confirm('删除「{{ event.title }}」？')">
-        <button class="text-xs text-rose-400 underline underline-offset-2">删除</button>
-      </form>
+    {% if imgs %}
+    <div class="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+      {% for img in imgs %}
+      <div class="relative">
+        <a href="/images/{{ img.id }}" target="_blank" rel="noopener">
+          <img src="/images/{{ img.id }}" alt="" loading="lazy"
+               width="{{ img.width }}" height="{{ img.height }}"
+               class="aspect-square w-full rounded-lg bg-slate-100 object-cover">
+        </a>
+        <form method="post" action="/images/{{ img.id }}/delete"
+              class="absolute right-1 top-1"
+              onsubmit="return confirm('删除这张图？')">
+          <button class="flex h-6 w-6 items-center justify-center rounded-full
+                         bg-black/50 text-xs text-white backdrop-blur
+                         transition hover:bg-black/70">×</button>
+        </form>
+      </div>
+      {% endfor %}
     </div>
+    {% endif %}
+
+    {% if imgs | length < max_images %}
+    <form method="post" action="/events/{{ event.id }}/images"
+          enctype="multipart/form-data"
+          class="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3">
+      <input type="file" name="files" accept="image/*" multiple required
+             class="min-w-0 flex-1 text-xs text-slate-500
+                    file:mr-2 file:rounded-md file:border-0 file:bg-slate-100
+                    file:px-2 file:py-1.5 file:text-xs file:text-slate-600">
+      <button class="shrink-0 rounded-md border border-slate-200 px-3 py-1.5 text-xs text-slate-600
+                     transition hover:bg-slate-50">加图</button>
+    </form>
+    {% endif %}
   </article>
   {% endfor %}
 </section>

@@ -55,8 +55,41 @@ def fmt_percent(value: float | None) -> str:
     return f"{value * 100:.0f}%"
 
 
+def fmt_kisses(centi: int | None) -> str:
+    """「百分之一个」转成好看的数量：整数就不带小数点。"""
+    if centi is None:
+        return "—"
+    value = centi / 100
+    if abs(value - round(value)) < 0.005:
+        return f"{round(value):d}"
+    return f"{value:.1f}"
+
+
+def fmt_signed_kisses(centi: int | None) -> str:
+    if centi is None:
+        return "—"
+    if centi == 0:
+        return "±0"
+    return f"{'+' if centi > 0 else '-'}{fmt_kisses(abs(centi))}"
+
+
+def fmt_bytes(size: int | None) -> str:
+    if not size:
+        return "0 B"
+    units = ("B", "KB", "MB", "GB")
+    value = float(size)
+    for unit in units:
+        if value < 1024 or unit == units[-1]:
+            return f"{value:.0f} {unit}" if unit == "B" else f"{value:.1f} {unit}"
+        value /= 1024
+    return f"{value:.1f} GB"
+
+
 templates.env.filters["minutes"] = fmt_minutes
 templates.env.filters["deviation"] = fmt_deviation
 templates.env.filters["signed"] = fmt_signed_minutes
 templates.env.filters["cn_date"] = fmt_date
 templates.env.filters["percent"] = fmt_percent
+templates.env.filters["kisses"] = fmt_kisses
+templates.env.filters["signed_kisses"] = fmt_signed_kisses
+templates.env.filters["filesize"] = fmt_bytes

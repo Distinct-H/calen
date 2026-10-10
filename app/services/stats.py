@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import ROLE_FEMALE, User
+from app.services.kisses import balance_series, build_ledger
 from app.services.records import list_records
 from app.services.scoring import summarize
 
@@ -66,4 +67,22 @@ def build_stats(db: Session, today: date, days: int = 90) -> dict:
             }
         )
 
-    return {"days": days, "labels": labels, "people": people}
+    ledger = build_ledger(db, today)
+
+    return {
+        "days": days,
+        "labels": labels,
+        "people": people,
+        # 亲亲余额走势。单位是「百分之一个」，前端显示时除以 100
+        "kiss_balance_centi": balance_series(db, axis),
+        "kiss": {
+            "balance_centi": ledger.balance_centi,
+            "custom_balance_centi": ledger.custom_balance_centi,
+            "custom_reward_name": ledger.config.custom_reward_name,
+            "minutes_per_kiss": ledger.config.minutes_per_kiss,
+            "debtor_name": ledger.debtor_name,
+            "creditor_name": ledger.creditor_name,
+            "owed_centi": ledger.owed_centi,
+            "is_settled": ledger.is_settled,
+        },
+    }

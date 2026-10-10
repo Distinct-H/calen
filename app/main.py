@@ -14,6 +14,8 @@ from app.routers import (
     calendar,
     cron,
     events,
+    images,
+    kisses,
     pages,
     records,
     reminders,
@@ -65,6 +67,8 @@ app.include_router(events.router)
 app.include_router(anniversaries.router)
 app.include_router(stats.router)
 app.include_router(reminders.router)
+app.include_router(images.router)
+app.include_router(kisses.router)
 app.include_router(cron.router)
 
 

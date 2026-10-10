@@ -6,7 +6,7 @@ FullCalendar 的约定：``allDay`` 事件用 ``YYYY-MM-DD``，定时事件用
 
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -14,8 +14,10 @@ from app.models import (
     METRIC_SLEEP,
     DailyRecord,
     Event,
+    ImageAsset,
     User,
 )
+from app.services.images import KIND_EVENT
 from app.services.events import format_time_range, list_events
 from app.services.records import list_records
 
@@ -66,16 +68,17 @@ def record_to_feed_item(record: DailyRecord, user: User) -> dict:
     }
 
 
-def event_to_feed_item(event: Event) -> dict:
+def event_to_feed_item(event: Event, image_count: int = 0) -> dict:
     item = {
         "id": f"event-{event.id}",
-        "title": f"📌 {event.title}",
+        "title": f"📌 {event.title}" + (f" 📷{image_count}" if image_count else ""),
         "color": EVENT_HEX.get(event.color or "", EVENT_FALLBACK_HEX),
         "extendedProps": {
             "kind": "event",
             "event_id": event.id,
             "description": event.description,
             "when": format_time_range(event),
+            "image_count": image_count,
         },
     }
 
@@ -91,6 +94,16 @@ def event_to_feed_item(event: Event) -> dict:
     return item
 
 
+def _image_counts(db: Session) -> dict[int, int]:
+    """事件 id → 图片张数。一次分组查询，避免每个事件查一遍。"""
+    rows = db.execute(
+        select(ImageAsset.event_id, func.count())
+        .where(ImageAsset.kind == KIND_EVENT, ImageAsset.event_id.isnot(None))
+        .group_by(ImageAsset.event_id)
+    ).all()
+    return {event_id: count for event_id, count in rows}
+
+
 def build_feed(db: Session, start: date | None, end: date | None) -> list[dict]:
     """区间内两人的全部打卡 + 全部事件。"""
     feed: list[dict] = []
@@ -101,6 +114,10 @@ def build_feed(db: Session, start: date | None, end: date | None) -> list[dict]:
             for record in list_records(db, user.id, start, end)
         )
 
-    feed.extend(event_to_feed_item(event) for event in list_events(db, start, end))
+    counts = _image_counts(db)
+    feed.extend(
+        event_to_feed_item(event, counts.get(event.id, 0))
+        for event in list_events(db, start, end)
+    )
 
     return feed

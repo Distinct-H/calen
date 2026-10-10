@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models import DailyRecord, User
 from app.services.clock import utc_now
+from app.services.kisses import settle_day
 from app.services.scoring import clamp_minutes, compute_deviation
 
 
@@ -89,6 +90,8 @@ def upsert_daily_record(
                 db, user, record_date, actual_minutes, today, note
             )
         db.refresh(record)
+        # 打卡变了，当天的亲亲结算要跟着重算
+        settle_day(db, record_date, today)
         return record
 
     existing.actual_minutes = actual_minutes
@@ -98,6 +101,7 @@ def upsert_daily_record(
     existing.updated_at = utc_now()
     db.commit()
     db.refresh(existing)
+    settle_day(db, record_date, today)
     return existing
 
 
@@ -120,3 +124,6 @@ def apply_target_change(
         todays_record.updated_at = utc_now()
 
     db.commit()
+
+    # 今天的偏差变了 → pair_diff 变了 → 亲亲结算要重算
+    settle_day(db, today, today)

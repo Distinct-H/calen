@@ -14,6 +14,47 @@
 <div class="space-y-4">
 
   <section class="rounded-2xl bg-white p-5 shadow-sm">
+    <h2 class="mb-4 font-semibold">头像</h2>
+
+    <div class="flex items-center gap-4">
+      {% if avatar %}
+      <img src="/images/{{ avatar.id }}" alt="当前头像" width="64" height="64"
+           class="h-16 w-16 shrink-0 rounded-full object-cover">
+      {% else %}
+      <span class="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-rose-100 text-xl text-rose-500">
+        {{ user.display_name[:1] }}
+      </span>
+      {% endif %}
+
+      <div class="min-w-0 flex-1">
+        <form method="post" action="/settings/avatar" enctype="multipart/form-data"
+              class="space-y-2">
+          <input type="file" name="file" accept="image/*" required
+                 class="block w-full text-sm text-slate-500
+                        file:mr-3 file:rounded-lg file:border-0 file:bg-rose-50
+                        file:px-3 file:py-2 file:text-sm file:text-rose-600">
+          <button type="submit"
+                  class="rounded-lg bg-rose-500 px-4 py-2 text-sm font-medium text-white
+                         transition hover:bg-rose-600">
+            上传头像
+          </button>
+        </form>
+        {% if avatar %}
+        <form method="post" action="/images/{{ avatar.id }}/delete" class="mt-2"
+              onsubmit="return confirm('删除头像？')">
+          <button class="text-xs text-slate-400 underline underline-offset-2">删除当前头像</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <p class="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-500">
+      会自动裁成正方形并压缩，单张上限 {{ max_upload_mb }} MB。
+      上传时会重新编码，顺手把 EXIF（含拍摄位置）剥掉。
+    </p>
+  </section>
+
+  <section class="rounded-2xl bg-white p-5 shadow-sm">
     <h2 class="mb-1 font-semibold">我的资料</h2>
     <p class="mb-4 text-xs text-slate-400">
       追踪指标：{{ user.metric_label }}（身份绑定后不可自行更改）
@@ -54,6 +95,86 @@
         保存
       </button>
     </form>
+  </section>
+
+  <section class="rounded-2xl bg-white p-5 shadow-sm">
+    <h2 class="mb-1 font-semibold">亲亲兑换规则</h2>
+    <p class="mb-4 text-xs leading-relaxed text-slate-400">
+      每天两人都填完后自动结算：按「达标程度之差」把领先的分钟数换成亲亲。
+      <strong>改比率不会改动历史结算</strong>，只有今天会重算。
+    </p>
+
+    <form method="post" action="/settings/kisses" class="space-y-3">
+      <div>
+        <span class="text-sm text-slate-500">兑换比率</span>
+        <div class="mt-1 flex items-center gap-2">
+          <input type="number" name="minutes_per_kiss" min="1" max="600" required
+                 inputmode="numeric" value="{{ ledger.config.minutes_per_kiss }}"
+                 class="w-24 rounded-lg border border-slate-200 px-3 py-2.5 text-center
+                        focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-300">
+          <span class="text-sm text-slate-500">分钟 : 1 个亲亲</span>
+        </div>
+      </div>
+
+      <label class="block">
+        <span class="text-sm text-slate-500">{{ ledger.male_name }} 领先时</span>
+        <p class="mt-1 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+          {{ ledger.female_name }} 欠的亲亲<strong>增加</strong>（固定规则）
+        </p>
+      </label>
+
+      <label class="block">
+        <span class="text-sm text-slate-500">{{ ledger.female_name }} 领先时</span>
+        <select name="female_lead_mode"
+                class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5
+                       focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-300">
+          {% for value, label in kiss_modes.items() %}
+          <option value="{{ value }}"
+            {% if ledger.config.female_lead_mode == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <div class="rounded-lg bg-slate-50 p-3">
+        <p class="mb-2 text-xs text-slate-500">选「换成别的奖励」时用下面这两项：</p>
+        <div class="flex items-end gap-2">
+          <label class="flex-1">
+            <span class="text-xs text-slate-400">奖励名称</span>
+            <input name="custom_reward_name" maxlength="50"
+                   value="{{ ledger.config.custom_reward_name }}"
+                   class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm
+                          focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-300">
+          </label>
+          <label class="w-28">
+            <span class="text-xs text-slate-400">几分钟换 1 个</span>
+            <input type="number" name="minutes_per_custom_unit" min="1" max="600"
+                   inputmode="numeric" value="{{ ledger.config.minutes_per_custom_unit }}"
+                   class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-center text-sm
+                          focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-300">
+          </label>
+        </div>
+      </div>
+
+      <button type="submit"
+              class="w-full rounded-lg bg-rose-500 py-2.5 font-medium text-white
+                     transition hover:bg-rose-600 active:scale-[0.99]">
+        保存兑换规则
+      </button>
+    </form>
+
+    <form method="post" action="/settings/kisses/resettle" class="mt-2">
+      <button class="w-full rounded-lg border border-slate-200 py-2.5 text-sm text-slate-600
+                     transition hover:bg-slate-50">
+        补算历史（给还没结算的日期补上）
+      </button>
+    </form>
+
+    <p class="mt-3 text-xs text-slate-400">
+      当前账本：
+      {% if ledger.is_settled %}两清{% else %}{{ ledger.debtor_name }} 欠 {{ ledger.creditor_name }}
+      {{ ledger.owed_centi | kisses }} 个亲亲{% endif %}
+      · 图片已占用 {{ image_bytes | filesize }}
+    </p>
   </section>
 
   <section class="rounded-2xl bg-white p-5 shadow-sm">

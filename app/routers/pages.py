@@ -17,6 +17,8 @@ from app.db import get_db
 from app.models import User
 from app.services.clock import today_in
 from app.services.dashboard import build_dashboard
+from app.services.images import MAX_UPLOAD_BYTES, get_avatar, total_bytes
+from app.services.kisses import MODE_LABELS, build_ledger
 from app.services.notifier import PROVIDER_LABELS
 from app.services.records import apply_target_change
 from app.services.reminder import KIND_LABELS, in_app_hints, list_reminders
@@ -97,6 +99,11 @@ def settings_page(
             "reminders": list_reminders(db),
             "reminder_kinds": KIND_LABELS,
             "push_providers": PROVIDER_LABELS,
+            "avatar": get_avatar(db, user),
+            "max_upload_mb": MAX_UPLOAD_BYTES // 1024 // 1024,
+            "image_bytes": total_bytes(db),
+            "ledger": build_ledger(db, today_in(user.timezone)),
+            "kiss_modes": MODE_LABELS,
             "message": message,
             "error": error,
         },

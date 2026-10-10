@@ -8,9 +8,19 @@
   {# ── 我的打卡 ─────────────────────────────────────────── #}
   {% set me = view.me %}
   <section class="rounded-2xl bg-white p-5 shadow-sm">
-    <div class="mb-4 flex items-baseline justify-between">
-      <h2 class="font-semibold">我的{{ me.user.metric_label }}</h2>
-      <span class="text-xs text-slate-400">达标值 {{ me.user.target_minutes | minutes }}</span>
+    <div class="mb-4 flex items-center gap-3">
+      {% if me.avatar %}
+      <img src="/images/{{ me.avatar.id }}" alt="" width="40" height="40"
+           class="h-10 w-10 shrink-0 rounded-full object-cover">
+      {% else %}
+      <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-sm text-rose-500">
+        {{ me.user.display_name[:1] }}
+      </span>
+      {% endif %}
+      <div class="min-w-0 flex-1">
+        <h2 class="font-semibold">我的{{ me.user.metric_label }}</h2>
+        <p class="text-xs text-slate-400">达标值 {{ me.user.target_minutes | minutes }}</p>
+      </div>
     </div>
 
     <form hx-post="/records" hx-target="#today-panel" hx-swap="outerHTML" class="space-y-3">
@@ -61,9 +71,19 @@
   {% if view.partner %}
   {% set ta = view.partner %}
   <section class="rounded-2xl bg-white p-5 shadow-sm">
-    <div class="mb-3 flex items-baseline justify-between">
-      <h2 class="font-semibold">{{ ta.user.display_name }} 的{{ ta.user.metric_label }}</h2>
-      <span class="text-xs text-slate-400">达标值 {{ ta.user.target_minutes | minutes }}</span>
+    <div class="mb-3 flex items-center gap-3">
+      {% if ta.avatar %}
+      <img src="/images/{{ ta.avatar.id }}" alt="" width="40" height="40"
+           class="h-10 w-10 shrink-0 rounded-full object-cover">
+      {% else %}
+      <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm text-indigo-500">
+        {{ ta.user.display_name[:1] }}
+      </span>
+      {% endif %}
+      <div class="min-w-0 flex-1">
+        <h2 class="font-semibold">{{ ta.user.display_name }} 的{{ ta.user.metric_label }}</h2>
+        <p class="text-xs text-slate-400">达标值 {{ ta.user.target_minutes | minutes }}</p>
+      </div>
     </div>
 
     {% if ta.filled %}
@@ -98,6 +118,72 @@
     </p>
   </section>
   {% endif %}
+
+  {# ── 亲亲账本 ─────────────────────────────────────────── #}
+  {% set lg = view.ledger %}
+  <section class="rounded-2xl bg-gradient-to-br from-rose-500 to-pink-500 p-5 text-white shadow-sm">
+    <div class="flex items-baseline justify-between">
+      <h2 class="font-semibold">亲亲账本</h2>
+      <span class="text-xs text-rose-100">
+        {{ lg.config.minutes_per_kiss }} 分钟 : 1 个亲亲
+      </span>
+    </div>
+
+    {% if lg.is_settled %}
+    <p class="mt-3 text-2xl font-bold">两清 🤝</p>
+    <p class="mt-1 text-sm text-rose-100">谁也不欠谁</p>
+    {% else %}
+    <p class="mt-3 text-sm text-rose-100">
+      {{ lg.debtor_name }} 欠 {{ lg.creditor_name }}
+    </p>
+    <p class="mt-0.5 text-3xl font-bold">
+      {{ lg.owed_centi | kisses }} <span class="text-lg font-medium">个亲亲</span> 💋
+    </p>
+    {% endif %}
+
+    {# 今日结算明细 #}
+    <div class="mt-4 border-t border-white/25 pt-3 text-sm">
+      {% if lg.today_pending %}
+      <p class="text-rose-100">今天还没结算 —— 两人都填完才会算</p>
+      {% else %}
+      {% set st = lg.today_settlement %}
+      <p>
+        <span class="text-rose-100">今日：</span>
+        {% if st.pair_diff_minutes < 0 %}
+          {{ lg.male_name }} 领先 {{ st.pair_diff_minutes | minutes }}
+        {% elif st.pair_diff_minutes > 0 %}
+          {{ lg.female_name }} 领先 {{ st.pair_diff_minutes | minutes }}
+        {% else %}
+          打平
+        {% endif %}
+      </p>
+      <p class="mt-1">
+        {% if st.kiss_delta_centi != 0 %}
+          <span class="text-rose-100">亲亲</span>
+          <span class="font-semibold">{{ st.kiss_delta_centi | signed_kisses }} 个</span>
+          {% if st.kiss_delta_centi < 0 %}
+          <span class="text-xs text-rose-100">（抵扣）</span>
+          {% endif %}
+        {% elif st.custom_delta_centi != 0 %}
+          <span class="text-rose-100">{{ st.custom_reward_name }}</span>
+          <span class="font-semibold">{{ st.custom_delta_centi | signed_kisses }} 个</span>
+        {% else %}
+          <span class="text-rose-100">亲亲不变</span>
+        {% endif %}
+        <span class="ml-1 text-xs text-rose-100">
+          按 {{ st.minutes_per_kiss }} 分钟 : 1 个
+        </span>
+      </p>
+      {% endif %}
+    </div>
+
+    {% if lg.custom_balance_centi != 0 %}
+    <p class="mt-3 border-t border-white/25 pt-3 text-sm">
+      <span class="text-rose-100">{{ lg.config.custom_reward_name }}累计</span>
+      <span class="ml-1 font-semibold">{{ lg.custom_balance_centi | kisses }} 个</span>
+    </p>
+    {% endif %}
+  </section>
 
   {# ── 我的累计 ─────────────────────────────────────────── #}
   {% set s = me.summary %}

@@ -7,6 +7,7 @@ from app.auth import require_user
 from app.db import get_db
 from app.models import User
 from app.services.clock import today_in
+from app.services.kisses import recent_settlements
 from app.services.stats import build_stats
 from app.templating import templates
 
@@ -26,6 +27,7 @@ def stats_page(
         {
             "user": user,
             "stats": build_stats(db, today_in(user.timezone), days),
+            "settlements": recent_settlements(db, limit=14),
         },
     )
 

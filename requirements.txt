@@ -15,6 +15,9 @@ itsdangerous>=2.2,<3.0         # SessionMiddleware 的签名 Cookie 依赖
 # 密码哈希。不用 passlib：已半停维护，且与 bcrypt 4.x 有兼容告警。
 argon2-cffi>=23.1,<26.0
 
+# 图片压缩与重编码。重编码顺带剥掉 EXIF（含 GPS）并干掉伪装成图片的文件。
+pillow>=11.0,<13.0
+
 httpx>=0.28,<1.0               # 调 Bark / Server酱 推送
 tzdata>=2024.2                 # 保证 ZoneInfo 在任何平台都能找到时区库
 

@@ -9,8 +9,10 @@ from datetime import date
 from sqlalchemy.orm import Session
 
 from app.auth import get_partner
-from app.models import ROLE_FEMALE, DailyRecord, User
+from app.models import ROLE_FEMALE, DailyRecord, ImageAsset, User
 from app.services.clock import today_in
+from app.services.images import get_avatar
+from app.services.kisses import KissLedger, build_ledger
 from app.services.records import get_record, list_records
 from app.services.scoring import Summary, compute_pair_diff, split_minutes, summarize
 
@@ -20,6 +22,7 @@ class PersonView:
     user: User
     record: DailyRecord | None
     summary: Summary
+    avatar: ImageAsset | None = None
 
     @property
     def deviation(self) -> int | None:
@@ -49,6 +52,7 @@ class DashboardView:
     day: date
     me: PersonView
     partner: PersonView | None
+    ledger: KissLedger
 
     @property
     def people(self) -> list[PersonView]:
@@ -89,6 +93,7 @@ def _build_person(db: Session, user: User, day: date) -> PersonView:
         record=get_record(db, user.id, day),
         # 两人量级下全量加载即可，不值得为分页增加复杂度
         summary=summarize(list_records(db, user.id)),
+        avatar=get_avatar(db, user),
     )
 
 
@@ -99,4 +104,5 @@ def build_dashboard(db: Session, user: User, day: date | None = None) -> Dashboa
         day=day,
         me=_build_person(db, user, day),
         partner=_build_person(db, partner, day) if partner else None,
+        ledger=build_ledger(db, day),
     )

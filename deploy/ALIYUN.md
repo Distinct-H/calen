@@ -500,15 +500,27 @@ dc up -d
 ## 日常运维
 
 ```bash
-# 更新代码（git 方式）
-cd /opt/couple-calendar && ./deploy/deploy.sh
+# 在 Mac 本地完成改动后提交并推送
+git add .
+git commit -m "说明这次改动"
+git push origin main       # GitHub 主仓库
+git push ecs main          # 推送到 ECS 上的 Git 镜像
 
-# 更新代码（rsync 方式）—— 先在 Mac 上 rsync，然后服务器上：
-cd /opt/couple-calendar && dc up -d --build
+# 再触发服务器备份、拉取和部署
+ssh root@你的服务器IP 'cd /opt/couple-calendar && ./deploy/deploy.sh'
 
 # 看状态和日志
-dc ps
+cd /opt/couple-calendar && dc ps
 dc logs -f --tail=100 app
+```
+
+本部署使用 GitHub 作为主仓库；如果 ECS 无法直接连接 GitHub，`ecs` 是服务器上的
+裸仓库镜像（`/opt/git/couple-calendar.git`）。它便于服务器通过 `git pull` 更新，
+但与应用同机，不能代替 GitHub 和异地数据库备份。
+
+```bash
+# 也可以直接通过 rsync 更新（不纳入 Git 版本流程）
+cd /opt/couple-calendar && dc up -d --build
 
 # 重启
 dc restart app

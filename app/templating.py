@@ -62,7 +62,7 @@ def fmt_kisses(centi: int | None) -> str:
     value = centi / 100
     if abs(value - round(value)) < 0.005:
         return f"{round(value):d}"
-    return f"{value:.1f}"
+    return f"{value:.2f}".rstrip("0").rstrip(".")
 
 
 def fmt_signed_kisses(centi: int | None) -> str:

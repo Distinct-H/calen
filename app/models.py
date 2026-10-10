@@ -280,6 +280,33 @@ class KissSettlement(Base):
     )
 
 
+class KissRequest(Base):
+    """男生申请增加亲亲，由女生审批后才计入余额。"""
+
+    __tablename__ = "kiss_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    requester_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    amount_centi: Mapped[int] = mapped_column(Integer)
+    note: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    reviewer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    approved_on: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    requester: Mapped[User] = relationship(foreign_keys=[requester_id])
+    reviewer: Mapped[User | None] = relationship(foreign_keys=[reviewer_id])
+
+
 class ReminderLog(Base):
     """提醒发送日志。
 

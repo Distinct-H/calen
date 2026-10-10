@@ -12,6 +12,13 @@
   </form>
 </header>
 
+{% if message %}
+<p class="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ message }}</p>
+{% endif %}
+{% if error %}
+<p class="mb-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ error }}</p>
+{% endif %}
+
 {% if hints %}
 <div class="mb-4 space-y-1.5">
   {% for hint in hints %}

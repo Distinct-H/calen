@@ -64,6 +64,8 @@ def logout(request: Request):
 @router.get("/")
 def today_page(
     request: Request,
+    message: str | None = None,
+    error: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
@@ -74,6 +76,8 @@ def today_page(
         {
             "view": view,
             "user": user,
+            "message": message,
+            "error": error,
             # 站内提醒：不依赖推送配置，打开页面就能看到
             "hints": in_app_hints(db, user, view.day),
         },

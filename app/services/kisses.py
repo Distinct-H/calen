@@ -23,10 +23,13 @@ from sqlalchemy.orm import Session
 
 from app.models import (
     ROLE_FEMALE,
+    ROLE_MALE,
     DailyRecord,
     KissConfig,
+    KissRequest,
     KissSettlement,
     User,
+    utcnow,
 )
 
 # 1 个亲亲 = 100 centi
@@ -232,12 +235,21 @@ def resettle_all(db: Session, today: date) -> int:
 
 def balance_centi(db: Session) -> int:
     """女生欠男生的亲亲余额。负数表示反过来是男生欠女生。"""
-    return int(
+    settlement_total = int(
         db.scalar(
             select(func.coalesce(func.sum(KissSettlement.kiss_delta_centi), 0))
         )
         or 0
     )
+    approved_total = int(
+        db.scalar(
+            select(func.coalesce(func.sum(KissRequest.amount_centi), 0)).where(
+                KissRequest.status == "approved"
+            )
+        )
+        or 0
+    )
+    return settlement_total + approved_total
 
 
 def custom_balance_centi(db: Session) -> int:
@@ -272,6 +284,15 @@ def balance_series(db: Session, axis: list[date]) -> list[int]:
         )
         or 0
     )
+    before += int(
+        db.scalar(
+            select(func.coalesce(func.sum(KissRequest.amount_centi), 0)).where(
+                KissRequest.status == "approved",
+                KissRequest.approved_on < axis[0],
+            )
+        )
+        or 0
+    )
 
     deltas = {
         s.settle_date: s.kiss_delta_centi
@@ -282,6 +303,17 @@ def balance_series(db: Session, axis: list[date]) -> list[int]:
             )
         )
     }
+    adjustments = db.execute(
+        select(KissRequest.approved_on, func.sum(KissRequest.amount_centi))
+        .where(
+            KissRequest.status == "approved",
+            KissRequest.approved_on >= axis[0],
+            KissRequest.approved_on <= axis[-1],
+        )
+        .group_by(KissRequest.approved_on)
+    ).all()
+    for approved_on, amount in adjustments:
+        deltas[approved_on] = deltas.get(approved_on, 0) + int(amount or 0)
 
     series = []
     running = before
@@ -301,6 +333,7 @@ class KissLedger:
     today_settlement: KissSettlement | None
     female: User | None
     male: User | None
+    requests: list[KissRequest]
 
     @property
     def female_name(self) -> str:
@@ -333,9 +366,20 @@ class KissLedger:
         """今天还没结算（有人没填）。"""
         return self.today_settlement is None
 
+    @property
+    def pending_requests(self) -> list[KissRequest]:
+        return [request for request in self.requests if request.status == "pending"]
+
 
 def build_ledger(db: Session, today: date) -> KissLedger:
     female, male = _pair(db)
+    requests = list(
+        db.scalars(
+            select(KissRequest)
+            .order_by(KissRequest.created_at.desc())
+            .limit(8)
+        )
+    )
     return KissLedger(
         config=get_config(db),
         balance_centi=balance_centi(db),
@@ -343,4 +387,53 @@ def build_ledger(db: Session, today: date) -> KissLedger:
         today_settlement=get_settlement(db, today),
         female=female,
         male=male,
+        requests=requests,
     )
+
+
+def create_kiss_request(
+    db: Session, requester: User, today: date, amount_centi: int, note: str = ""
+) -> KissRequest:
+    if requester.role != ROLE_MALE:
+        raise ValueError("只有男生可以申请增加亲亲")
+    if get_settlement(db, today) is None:
+        raise ValueError("今天双方结算后才能申请")
+    if not 1 <= amount_centi <= 100 * KISS_SCALE:
+        raise ValueError("申请数量需大于 0 且不超过 100 个")
+    request = KissRequest(
+        requester_id=requester.id,
+        amount_centi=amount_centi,
+        note=note.strip()[:200] or None,
+        status="pending",
+    )
+    db.add(request)
+    db.commit()
+    db.refresh(request)
+    return request
+
+
+def review_kiss_request(
+    db: Session,
+    approver: User,
+    request_id: int,
+    approve: bool,
+    today: date,
+) -> KissRequest:
+    if approver.role != ROLE_FEMALE:
+        raise ValueError("只有女生可以审批亲亲申请")
+    request = db.scalar(
+        select(KissRequest)
+        .where(KissRequest.id == request_id)
+        .with_for_update()
+    )
+    if request is None:
+        raise LookupError("亲亲申请不存在")
+    if request.status != "pending":
+        raise ValueError("这条申请已经处理过了")
+    request.status = "approved" if approve else "rejected"
+    request.reviewer_id = approver.id
+    request.reviewed_at = utcnow()
+    request.approved_on = today if approve else None
+    db.commit()
+    db.refresh(request)
+    return request

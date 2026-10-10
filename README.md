@@ -14,7 +14,7 @@
 | **统计** | 每日偏差折线、累计偏差面积图、亲亲余额走势、结算明细、达标率与连续达标 |
 | **设置** | **头像**、昵称、达标值、**亲亲兑换规则**、推送渠道、提醒规则、改密码 |
 
-部署上线看 [DEPLOY.md](DEPLOY.md)。
+部署上线：**阿里云 ECS** 看 [deploy/ALIYUN.md](deploy/ALIYUN.md)，托管平台（Railway / Render）看 [DEPLOY.md](DEPLOY.md)。
 
 ## 快速开始
 

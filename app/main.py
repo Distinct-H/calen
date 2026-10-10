@@ -38,8 +38,9 @@ app.add_middleware(
     secret_key=settings.session_secret,
     max_age=settings.session_max_age,
     same_site="lax",
-    # 本地开发走 http，Cookie 不能要求 Secure，否则根本存不下来
-    https_only=not settings.debug,
+    # 浏览器拒绝在 http:// 上保存 Secure Cookie，所以这个开关要能单独控制：
+    # 还没配 HTTPS（比如暂时用 http://IP 访问）时必须关掉，否则登录会静默失败。
+    https_only=settings.session_https_only,
 )
 
 app.mount(

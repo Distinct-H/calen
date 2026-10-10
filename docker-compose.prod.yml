@@ -1,0 +1,71 @@
+# 阿里云 ECS 上的生产编排。配套 .env.prod（从 .env.prod.example 复制）。
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# ⚠️ 端口绑定的两个关键点：
+# 1. db 完全不发布端口 —— 数据库只在 compose 内网通信，公网碰不到
+# 2. app 绑的是 127.0.0.1:8000 而不是 0.0.0.0:8000
+#    Docker 发布端口会直接写 iptables 的 DOCKER 链，**绕过 ufw**。
+#    很多人配好 ufw 却发现端口照样对公网开着，就是踩了这个。
+#    绑回环就从根上避开，外部一律走宿主机的 Nginx。
+
+name: couple-calendar
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-couple}
+      POSTGRES_USER: ${POSTGRES_USER:-couple}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 必须在 .env.prod 里设置}
+      TZ: Asia/Shanghai
+      # 初始化时就用 UTF-8，避免中文排序和比较出问题
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-couple} -d ${POSTGRES_DB:-couple}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  app:
+    build:
+      context: .
+      args:
+        # 国内构建走阿里云 PyPI 镜像，不然 pip 会很慢
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://mirrors.aliyun.com/pypi/simple/}
+    restart: unless-stopped
+    depends_on:
+      db:
+        # 等数据库真的能连上再启动，否则 alembic 会连不上直接退出
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-couple}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-couple}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET 必须设置}
+      CRON_SECRET: ${CRON_SECRET:?CRON_SECRET 必须设置}
+      DEBUG: "false"
+      # 还没配 HTTPS 时必须是 false：浏览器不会在 http:// 上保存 Secure Cookie，
+      # 强行加会导致登录静默失败。配好证书后改成 true 并 dc up -d。
+      SECURE_COOKIES: ${SECURE_COOKIES:-false}
+      DEFAULT_TIMEZONE: Asia/Shanghai
+      TZ: Asia/Shanghai
+    ports:
+      - "127.0.0.1:${APP_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request as u; u.urlopen('http://127.0.0.1:8000/healthz')\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        # 不限制的话日志能把磁盘撑满——自托管服务最常见的挂机原因
+        max-size: "50m"
+        max-file: "5"
+
+volumes:
+  pgdata:

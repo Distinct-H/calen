@@ -1,0 +1,21 @@
+.git
+.gitignore
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+
+# 绝对不要把本地的 .env 和 SQLite 库打进镜像
+.env
+data/
+
+.idea
+.vscode
+.DS_Store
+
+# 文档不参与运行
+*.md
+!README.md
+deploy/

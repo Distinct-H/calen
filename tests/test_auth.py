@@ -1,7 +1,38 @@
 """认证与访问控制。"""
 
+import pytest
+
 from app.auth import authenticate, hash_password, verify_password
+from app.config import Settings
 from tests.conftest import PASSWORD
+
+
+class TestSecureCookieSwitch:
+    """会话 Cookie 的 Secure 标记必须能单独开关。
+
+    浏览器**拒绝在 http:// 上保存 Secure Cookie**。所以在还没配 HTTPS、
+    暂时用 http://服务器IP 访问的阶段，如果强行加 Secure，登录会静默失败——
+    提交后跳回登录页，不报任何错误，极难排查。
+    """
+
+    @pytest.mark.parametrize(
+        "debug,override,expected",
+        [
+            (False, None, True),    # 生产默认加 Secure
+            (False, False, False),  # 还没配 HTTPS 时必须能关掉
+            (False, True, True),    # 配好证书后显式打开
+            (True, None, False),    # 本地开发走 http，不能加
+            (True, True, True),     # 本地也允许强制打开
+        ],
+    )
+    def test_resolves_from_debug_and_override(self, debug, override, expected):
+        settings = Settings(
+            debug=debug,
+            secure_cookies=override,
+            session_secret="s" * 40,
+            cron_secret="c" * 40,
+        )
+        assert settings.session_https_only is expected
 
 
 class TestPasswordHashing:

@@ -33,9 +33,23 @@ class Settings(BaseSettings):
     debug: bool = False
     session_max_age: int = 60 * 60 * 24 * 30  # 30 天免登录
 
+    # 会话 Cookie 是否加 Secure 标记。None = 跟随 debug（生产加，开发不加）。
+    #
+    # ⚠️ 必须能单独关掉：浏览器**拒绝在 http:// 上保存 Secure Cookie**，
+    # 所以还没配 HTTPS、暂时用 http://IP 访问时，如果强行加 Secure，
+    # 登录会静默失败——提交后跳回登录页，不报任何错，极难排查。
+    # 配好证书之后改成 true。
+    secure_cookies: bool | None = None
+
     @property
     def sqlalchemy_url(self) -> str:
         return normalize_database_url(self.database_url)
+
+    @property
+    def session_https_only(self) -> bool:
+        if self.secure_cookies is not None:
+            return self.secure_cookies
+        return not self.debug
 
     @property
     def is_sqlite(self) -> bool:
